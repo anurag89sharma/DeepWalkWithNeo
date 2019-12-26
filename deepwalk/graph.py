@@ -17,6 +17,7 @@ from random import shuffle
 from itertools import product,permutations
 from scipy.io import loadmat
 from scipy.sparse import issparse
+from py2neo.database import Graph as NeoGraph
 
 logger = logging.getLogger("deepwalk")
 
@@ -252,11 +253,9 @@ def load_edgelist(file_, undirected=True):
   return G
 
 
-import py2neo 
-from py2neo.database import Graph as NeoGraph
-def load_neo(undirected=True):
+def load_neo(connection_uri, undirected=True):
   G = Graph()
-  graph = NeoGraph()
+  graph = NeoGraph(connection_uri)
   rels = list(graph.match())
   for rel in rels:
     x, y = int(rel.start_node.identity), int(rel.end_node.identity)
@@ -269,16 +268,18 @@ def load_neo(undirected=True):
     (G.number_of_nodes(), G.number_of_edges()))
   return G
 
-def write_to_neo(keyedVectorEmbeddings):
-  graph = NeoGraph()
+def write_to_neo(keyedVectorEmbeddings, connection_uri):
+  graph = NeoGraph(connection_uri)
 
   nodes = list(graph.nodes.match())
 
   subgraph = None
   for node in nodes:
-    emb = list(keyedVectorEmbeddings[str(node.identity)])
-    node['embedding'] = str(emb)
-    subgraph = subgraph | node if subgraph is not None else node
+    node_id = str(node.identity)
+    if node_id in keyedVectorEmbeddings:
+      emb = list(keyedVectorEmbeddings[node_id])
+      node['embedding'] = str(emb)
+      subgraph = subgraph | node if subgraph is not None else node
 
   graph.push(subgraph)
 

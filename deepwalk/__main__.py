@@ -5,7 +5,7 @@ import os
 import sys
 import random
 from io import open
-from argparse import ArgumentParser, FileType, ArgumentDefaultsHelpFormatter
+from argparse import ArgumentParser, ArgumentTypeError, FileType, ArgumentDefaultsHelpFormatter
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 import logging
@@ -56,7 +56,7 @@ def process(args):
   elif args.format == "mat":
     G = graph.load_matfile(args.input, variable_name=args.matfile_variable_name, undirected=args.undirected)
   elif args.format == "neo":
-    G = graph.load_neo()
+    G = graph.load_neo(args.neo4j_connection_uri)
   else:
     raise Exception("Unknown file format: '%s'.  Valid formats: 'adjlist', 'edgelist', 'mat'" % args.format)
 
@@ -98,11 +98,21 @@ def process(args):
                      size=args.representation_size,
                      window=args.window_size, min_count=0, trim_rule=None, workers=args.workers)
 
-  if args.format=='neo':
-    graph.write_to_neo(model.wv)
+  if args.format=='neo' and args.save_to_graph:
+    graph.write_to_neo(model.wv, args.neo4j_connection_uri)
   else:
     model.wv.save_word2vec_format(args.output)
 
+
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise ArgumentTypeError('Boolean value expected.')
   
 
 def main():
@@ -116,6 +126,12 @@ def main():
 
   parser.add_argument('--format', default='adjlist',
                       help='File format of input file')
+
+  parser.add_argument('--neo4j-connection-uri', required='neo' in sys.argv,
+                      help="Neo4j connection URI (eg - 'bolt://<username>:<passowrd>@<host>:<port>)'")
+
+  parser.add_argument('--save-to-graph', required='neo' in sys.argv, type=str2bool,
+                      help="write node embeddings back to Neo4j")
 
   parser.add_argument('--input', nargs='?', required=False,
                       help='Input graph file')
@@ -161,7 +177,7 @@ def main():
 
   args = parser.parse_args()
   numeric_level = getattr(logging, args.log.upper(), None)
-  logging.basicConfig(format=LOGFORMAT)
+  logging.basicConfig(format=LOGFORMAT, level=numeric_level)
   logger.setLevel(numeric_level)
 
   if args.debug:
