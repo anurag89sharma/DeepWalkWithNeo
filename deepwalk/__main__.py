@@ -148,7 +148,7 @@ def main():
   parser.add_argument('--number-walks', default=10, type=int,
                       help='Number of random walks to start at each node')
 
-  parser.add_argument('--output', required=False,
+  parser.add_argument('--output', required=False, default='./node_embeddings.model',
                       help='Output representation file')
 
   parser.add_argument('--representation-size', default=64, type=int,
